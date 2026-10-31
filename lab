@@ -10,7 +10,7 @@ ready() {  # wait until VulnBot answers (containers take a few seconds to boot)
 case "$1" in
   start)  docker compose up -d --build && ready && echo "VulnBot: http://127.0.0.1:8080" ;;
   stop)   docker compose down ;;
-  reset)  curl -s -X POST http://127.0.0.1:8080/api/reset; echo ;;
+  reset)  ready && curl -s --retry 5 --retry-delay 1 --retry-all-errors -X POST http://127.0.0.1:8080/api/reset; echo ;;
   status) curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool ;;
   poison) curl -s -X POST "http://127.0.0.1:9100/admin/mode/${2:-inject}"; echo ;;
   logs)   docker compose logs -f --tail 50 $2 ;;
