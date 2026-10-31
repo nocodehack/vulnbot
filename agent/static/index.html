@@ -44,6 +44,25 @@
   details { border-top:1px solid var(--line); padding:10px 20px; } summary { cursor:pointer; color:var(--dim); font-size:15px; } summary:hover { color:var(--ink); }
   details[open] summary { color:var(--ink); }
   details form { display:grid; gap:8px; margin-top:10px; } textarea { min-height:90px; resize:vertical; }
+  .tag { display:inline-block; font:700 10px/1 system-ui, sans-serif; letter-spacing:.08em; padding:3px 6px; border-radius:4px; margin-right:8px; vertical-align:1px; background:var(--line); color:var(--ink); }
+  .t.call .tag { background:var(--acc); color:#06121b; } .t.result .tag { background:var(--ok); color:#04130a; }
+  .t.mcp .tag { background:var(--hi); color:#1a1300; } .t.memory .tag { background:var(--mem); color:#14061f; }
+  .t.blocked .tag { background:var(--red); color:#1f0505; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; padding:8px 20px; border-bottom:1px solid var(--line); font-size:12px; color:var(--dim); }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+  .who { font-size:12px; font-weight:600; color:var(--dim); margin:14px 0 -4px; display:flex; align-items:center; gap:8px; }
+  .who.right { justify-content:flex-end; }
+  .av { width:30px; height:30px; border-radius:50%; display:inline-grid; place-items:center; font:700 13px system-ui, sans-serif; color:#06121b; flex:none; }
+  .who .av { width:22px; height:22px; font-size:11px; }
+  #avatar { box-shadow:0 0 0 2px var(--panel), 0 0 0 3px var(--line); }
+  .dots span { animation:blink 1.2s infinite; } .dots span:nth-child(2) { animation-delay:.2s; } .dots span:nth-child(3) { animation-delay:.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity:.2; } 40% { opacity:1; } }
+  summary { list-style:none; display:flex; align-items:center; gap:10px; } summary::-webkit-details-marker { display:none; }
+  summary::before { content:"›"; font-size:20px; line-height:1; transition:transform .15s; color:var(--acc); }
+  details[open] summary::before { transform:rotate(90deg); }
+  #inbound { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  #inbound input { background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; padding:8px 4px; }
+  #inbound input:focus { box-shadow:none; }
   ::-webkit-scrollbar { width:10px; } ::-webkit-scrollbar-thumb { background:var(--line); border-radius:5px; }
   @media (max-width: 800px) { main { grid-template-columns:1fr; } }
 </style>
@@ -51,6 +70,7 @@
 <body>
 <header>
   <h1>Vuln<span>Bot</span> · Pixel &amp; Parcel support</h1>
+  <span class="av" id="avatar">S</span>
   <label>Logged in as
     <select id="user">
       <option value="staff">Sam (support staff)</option>
@@ -89,6 +109,7 @@
   </section>
   <section>
     <h2>Agent trace: what the model saw and did</h2>
+    <div class="legend"><span><i style="background:var(--acc)"></i>tool call</span><span><i style="background:var(--ok)"></i>result</span><span><i style="background:var(--hi)"></i>MCP tool</span><span><i style="background:var(--mem)"></i>memory</span><span><i style="background:var(--red)"></i>blocked</span></div>
     <div id="trace"></div>
   </section>
 </main>
@@ -100,8 +121,17 @@ const show = (v) => (typeof v === "string" ? v : JSON.stringify(v, null, 1));
 
 // light markdown for bot replies: escape first, so model output can never inject HTML
 const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/^#{1,4} +(.*)$/gm, "<b>$1</b>").replace(/^[-*] /gm, "• ");
-function say(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; if (cls === "bot") d.innerHTML = md(text); else d.textContent = text; $("chat").append(d); d.scrollIntoView(); }
-function line(cls, html) { const d = document.createElement("div"); d.className = "t " + cls; d.innerHTML = html; $("trace").append(d); d.scrollIntoView(); }
+const PEOPLE = { staff: ["S", "#4cc2ff"], alice: ["A", "#3fb950"], bob: ["B", "#ffd166"], max: ["M", "#ff8a65"], bot: ["V", "#c084fc"] };
+const av = (k) => `<span class="av" style="background:${PEOPLE[k][1]}">${PEOPLE[k][0]}</span>`;
+const TAGS = { call: "TOOL CALL", result: "RESULT", mcp: "MCP TOOL", memory: "MEMORY", blocked: "BLOCKED" };
+function say(cls, text) {
+  const u = $("user"), k = cls === "bot" ? "bot" : u.value, name = cls === "bot" ? "VulnBot" : u.selectedOptions[0].text;
+  const w = document.createElement("div"); w.className = cls === "me" ? "who right" : "who"; w.innerHTML = cls === "bot" ? av(k) + esc(name) : esc(name) + av(k);
+  const d = document.createElement("div"); d.className = "msg " + cls; if (cls === "bot") d.innerHTML = md(text); else d.textContent = text;
+  $("chat").append(w, d); d.scrollIntoView();
+}
+function line(cls, html) { const d = document.createElement("div"); d.className = "t " + cls; d.innerHTML = (TAGS[cls] ? `<span class="tag">${TAGS[cls]}</span>` : "") + html; $("trace").append(d); d.scrollIntoView(); }
+function setAvatar() { const [l, c] = PEOPLE[$("user").value]; $("avatar").textContent = l; $("avatar").style.background = c; }
 
 function render(trace) {
   for (const t of trace) {
@@ -124,7 +154,7 @@ function newSession() { sid = null; $("chat").innerHTML = ""; $("trace").innerHT
 $("send").onsubmit = async (e) => {
   e.preventDefault();
   const message = $("msg").value.trim(); if (!message) return;
-  $("msg").value = ""; say("me", message); line("info", "thinking…");
+  $("msg").value = ""; say("me", message); line("info", 'thinking<span class="dots"><span>.</span><span>.</span><span>.</span></span>');
   const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: $("user").value, session_id: sid, message }) });
   $("trace").lastChild.remove();
   if (!r.ok) { line("blocked", "error " + r.status + ": " + esc(await r.text())); return; }
@@ -140,7 +170,8 @@ $("inbound").onsubmit = async (e) => {
   const r = await fetch("/api/inbound-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from_addr: $("efrom").value, reply_to: $("ereply").value, subject: $("esub").value, body: $("ebody").value }) });
   const j = await r.json(); line("info", `email from ${esc($("efrom").value)} became ticket ${esc(j.id)}`); $("efrom").value = $("ereply").value = $("esub").value = $("ebody").value = "";
 };
-$("user").onchange = newSession;
+$("user").onchange = () => { setAvatar(); newSession(); };
+setAvatar();
 $("newsess").onclick = newSession;
 $("reset").onclick = async () => { await fetch("/api/reset", { method: "POST" }); newSession(); line("info", "lab reset: seeded data restored, memory cleared, MCP server benign"); state(); };
 state();
