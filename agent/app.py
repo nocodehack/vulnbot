@@ -12,10 +12,16 @@ MCP = "http://mcp-shipping:9100"
 TOKENS = {"staff": "tok-staff", "alice": "tok-alice", "bob": "tok-bob", "max": "tok-max"}
 MAX_STEPS = 12
 
-llm = OpenAI(base_url=os.getenv("LLM_BASE_URL"), api_key=os.getenv("LLM_API_KEY"))
-MODEL = os.getenv("LLM_MODEL")
-# some reasoning models (e.g. gpt-6-luna) only allow function tools on chat completions with reasoning_effort=none
-EXTRA = {"reasoning_effort": os.getenv("LLM_REASONING_EFFORT")} if os.getenv("LLM_REASONING_EFFORT") else {}
+def llm_config(prefix):  # LLM_* is the main model; ALT_LLM_* an optional second one for side-by-side tests
+    if not os.getenv(prefix + "LLM_MODEL"):
+        return None
+    # some reasoning models (e.g. gpt-6-luna) only allow function tools on chat completions with reasoning_effort=none
+    effort = os.getenv(prefix + "LLM_REASONING_EFFORT")
+    return {"client": OpenAI(base_url=os.getenv(prefix + "LLM_BASE_URL"), api_key=os.getenv(prefix + "LLM_API_KEY")),
+            "model": os.getenv(prefix + "LLM_MODEL"), "extra": {"reasoning_effort": effort} if effort else {}}
+
+LLMS = {"main": llm_config(""), "alt": llm_config("ALT_")}
+MODEL = LLMS["main"]["model"]
 tools_http = httpx.Client(timeout=20, proxy=os.getenv("HTTP_PROXY_FOR_TOOLS") or None)  # Burp can sit here (P07/P08)
 SESSIONS, APPROVED = {}, {}  # session_id -> {user, messages, trace}; MCP tool name -> approved definition hash
 mcp_pin = lambda: os.getenv("DEFENSE_MCP_PIN", "off").strip().lower() == "on"
@@ -71,9 +77,9 @@ def run_tool(user, name, a):
     res = mcp_call("tools/call", {"name": name, "arguments": a})
     return 200, " ".join(c.get("text", "") for c in res["content"])
 
-def new_session(user):
+def new_session(user, llm="main"):
     sid = uuid.uuid4().hex[:8]
-    trace = [{"type": "info", "text": f"New session {sid} as {user}, model {MODEL}"}]
+    trace = [{"type": "info", "text": f"New session {sid} as {user}, model {LLMS[llm]['model']}"}]
     memory = shop("staff", "GET", "/memory")[1]
     if memory:
         trace.append({"type": "memory", "notes": memory})
@@ -89,7 +95,7 @@ def new_session(user):
         "Keep replies short and friendly.")
     if memory:
         system += "\nRemembered from earlier sessions (store policies and customer preferences):\n" + "\n".join(f"- {m}" for m in memory)
-    SESSIONS[sid] = {"user": user, "tools": tools, "messages": [{"role": "system", "content": system}], "trace": trace}
+    SESSIONS[sid] = {"user": user, "llm": llm, "tools": tools, "messages": [{"role": "system", "content": system}], "trace": trace}
     return sid
 
 class Chat(BaseModel):
@@ -97,6 +103,7 @@ class Chat(BaseModel):
     message: str
     session_id: str | None = None
     reset: bool = False  # promptfoo: start each test from the seeded state
+    llm: str = "main"    # "alt" = the optional second model from ALT_LLM_*
 
 app = FastAPI(title="VulnBot")
 
@@ -108,9 +115,11 @@ def index():
 def chat(c: Chat):
     if c.reset:
         reset()
+    if not LLMS.get(c.llm):
+        return {"session_id": None, "reply": f"(model error: no {c.llm} model configured in .env)", "usage": {"input": 0, "output": 0}, "trace": []}
     fresh = c.session_id not in SESSIONS
     if fresh:
-        c.session_id = new_session(c.user)
+        c.session_id = new_session(c.user, c.llm)
     s = SESSIONS[c.session_id]
     start = 0 if fresh else len(s["trace"])
     s["messages"].append({"role": "user", "content": c.message})
@@ -118,7 +127,8 @@ def chat(c: Chat):
     reply, usage = "", {"input": 0, "output": 0}
     for _ in range(MAX_STEPS):
         try:
-            resp = llm.chat.completions.create(model=MODEL, messages=s["messages"], tools=s["tools"], **EXTRA)
+            L = LLMS[s["llm"]]
+            resp = L["client"].chat.completions.create(model=L["model"], messages=s["messages"], tools=s["tools"], **L["extra"])
         except OpenAIError as e:  # bad key, no credit, unknown model: say so instead of a stack trace
             reply = f"(model error: {e})"
             break
@@ -170,6 +180,7 @@ def state():
     st["mcp_mode"] = httpx.get(MCP + "/admin/mode").json()["mode"]
     st["mcp_received"] = httpx.get(MCP + "/admin/received").json()
     st["model"] = MODEL
+    st["alt_model"] = LLMS["alt"]["model"] if LLMS["alt"] else None
     return st
 
 @app.post("/api/reset")

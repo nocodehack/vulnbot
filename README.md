@@ -68,6 +68,19 @@ Tested 31 October 2026 on Kali 2026.3, 5 runs per cell, defenses off. With every
 
 Modern models refuse the classic injection, which is the point: in the labs you'll see why, and what still gets through.
 
+## Automated tests (promptfoo)
+
+`promptfoo/` replays every attack from a fresh reset and marks each row PASS (the store stayed safe) or FAIL. Optional: put a second model in the `ALT_LLM_*` lines of `.env` to compare two models side by side.
+
+```bash
+sudo apt install -y nodejs npm     # once
+cd promptfoo
+npx promptfoo@0.125.1 eval --no-cache
+npx promptfoo@0.125.1 view         # results table in the browser
+```
+
+With the defenses off, only the normal ticket and the classic injection pass. Run `./lab defense all on` and every row passes.
+
 ## Troubleshooting
 
 - **`(model error: ...)` in the chat:** the key, model name or base URL in `.env` is wrong, or the account has no credit. Fix `.env`, then `./lab start`.
