@@ -48,6 +48,7 @@
   .t.call .tag { background:var(--acc); color:#06121b; } .t.result .tag { background:var(--ok); color:#04130a; }
   .t.mcp .tag { background:var(--hi); color:#1a1300; } .t.memory .tag { background:var(--mem); color:#14061f; }
   .t.blocked .tag { background:var(--red); color:#1f0505; }
+  mark { background:var(--hi); color:#1a1300; font-weight:700; padding:0 4px; border-radius:4px; box-shadow:0 0 10px #ffd16699; }
   .legend { display:flex; gap:14px; flex-wrap:wrap; padding:8px 20px; border-bottom:1px solid var(--line); font-size:12px; color:var(--dim); }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
   .who { font-size:12px; font-weight:600; color:var(--dim); margin:14px 0 -4px; display:flex; align-items:center; gap:8px; }
@@ -127,10 +128,12 @@ const TAGS = { call: "TOOL CALL", result: "RESULT", mcp: "MCP TOOL", memory: "ME
 function say(cls, text) {
   const u = $("user"), k = cls === "bot" ? "bot" : u.value, name = cls === "bot" ? "VulnBot" : u.selectedOptions[0].text;
   const w = document.createElement("div"); w.className = cls === "me" ? "who right" : "who"; w.innerHTML = cls === "bot" ? av(k) + esc(name) : esc(name) + av(k);
-  const d = document.createElement("div"); d.className = "msg " + cls; if (cls === "bot") d.innerHTML = md(text); else d.textContent = text;
+  const d = document.createElement("div"); d.className = "msg " + cls; if (cls === "bot") d.innerHTML = glow(md(text)); else d.textContent = text;
   $("chat").append(w, d); d.scrollIntoView();
 }
-function line(cls, html) { const d = document.createElement("div"); d.className = "t " + cls; d.innerHTML = (TAGS[cls] ? `<span class="tag">${TAGS[cls]}</span>` : "") + html; $("trace").append(d); d.scrollIntoView(); }
+// the lab's two "crown jewel" secrets glow wherever they appear, so a leak is easy to spot on screen
+const glow = (h) => h.replace(/7F3A9|2C81E/g, "<mark>$&</mark>");
+function line(cls, html) { const d = document.createElement("div"); d.className = "t " + cls; d.innerHTML = (TAGS[cls] ? `<span class="tag">${TAGS[cls]}</span>` : "") + glow(html); $("trace").append(d); d.scrollIntoView(); }
 function setAvatar() { const [l, c] = PEOPLE[$("user").value]; $("avatar").textContent = l; $("avatar").style.background = c; }
 
 function render(trace) {
