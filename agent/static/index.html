@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VulnBot · Pixel &amp; Parcel</title>
+<style>
+  :root { --bg:#0e1116; --panel:#161b22; --line:#2a313c; --ink:#e6edf3; --dim:#8b949e; --acc:#4cc2ff; --ok:#3fb950; --red:#ff6b6b; --hi:#ffd166; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui, sans-serif; height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0 12px 0 0; } header h1 span { color:var(--acc); }
+  select, button, input, textarea { font:inherit; color:var(--ink); background:#0b0e13; border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+  button { cursor:pointer; } button:hover { border-color:var(--acc); }
+  #defs { margin-left:auto; color:var(--dim); font-size:14px; }
+  #defs b.on { color:var(--ok); } #defs b.off { color:var(--red); }
+  main { flex:1; display:grid; grid-template-columns: 1fr 1fr; min-height:0; }
+  section { display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0; padding:10px 16px; border-bottom:1px solid var(--line); }
+  #chat, #trace { flex:1; overflow:auto; padding:12px 16px; }
+  .msg { margin:8px 0; padding:10px 12px; border-radius:8px; max-width:90%; white-space:pre-wrap; }
+  .me { background:#1f2a37; margin-left:auto; } .bot { background:var(--panel); border:1px solid var(--line); }
+  form.send { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--line); }
+  form.send input { flex:1; }
+  .t { font:13px/1.4 ui-monospace, "Fira Code", monospace; margin:6px 0; padding:6px 8px; border-left:3px solid var(--line); white-space:pre-wrap; word-break:break-word; }
+  .t.call { border-color:var(--acc); } .t.result { border-color:var(--ok); color:var(--dim); }
+  .t.blocked { border-color:var(--red); color:var(--red); } .t.mcp { border-color:var(--hi); }
+  .t.memory { border-color:#c084fc; } .t.info { color:var(--dim); border-color:transparent; }
+  .t .k { color:var(--hi); }
+  details { border-top:1px solid var(--line); padding:8px 16px; } summary { cursor:pointer; color:var(--dim); }
+  details form { display:grid; gap:8px; margin-top:8px; } textarea { min-height:90px; }
+  @media (max-width: 800px) { main { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Vuln<span>Bot</span> · Pixel &amp; Parcel support</h1>
+  <label>Logged in as
+    <select id="user">
+      <option value="staff">Sam (support staff)</option>
+      <option value="alice">Alice Martin (customer)</option>
+      <option value="bob">Bob Lee (customer)</option>
+      <option value="max">Max Mallory (customer)</option>
+    </select>
+  </label>
+  <button id="newsess">New session</button>
+  <button id="reset">Reset lab</button>
+  <div id="defs"></div>
+</header>
+<main>
+  <section>
+    <h2>Chat</h2>
+    <div id="chat"></div>
+    <form class="send" id="send"><input id="msg" placeholder="Ask VulnBot…" autocomplete="off"><button>Send</button></form>
+    <details>
+      <summary>Customer portal: open a new support ticket (no AI involved)</summary>
+      <form id="ticket">
+        <input id="tsub" placeholder="Subject">
+        <textarea id="tbody" placeholder="Describe the problem…"></textarea>
+        <button>Submit ticket as the logged-in customer</button>
+      </form>
+    </details>
+    <details>
+      <summary>Email support@pixelparcel.example (anyone on the internet, no login)</summary>
+      <form id="inbound">
+        <input id="efrom" placeholder="From, e.g. Jane Doe &lt;jane@example.com&gt;">
+        <input id="ereply" placeholder="Reply-To (optional)">
+        <input id="esub" placeholder="Subject">
+        <textarea id="ebody" placeholder="Email text…"></textarea>
+        <button>Send email (it becomes a ticket)</button>
+      </form>
+    </details>
+  </section>
+  <section>
+    <h2>Agent trace: what the model saw and did</h2>
+    <div id="trace"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let sid = null;
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+const show = (v) => (typeof v === "string" ? v : JSON.stringify(v, null, 1));
+
+function say(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; $("chat").append(d); d.scrollIntoView(); }
+function line(cls, html) { const d = document.createElement("div"); d.className = "t " + cls; d.innerHTML = html; $("trace").append(d); d.scrollIntoView(); }
+
+function render(trace) {
+  for (const t of trace) {
+    if (t.type === "info") line("info", esc(t.text));
+    if (t.type === "memory") line("memory", `<span class="k">memory loaded into the prompt</span>\n` + esc(t.notes.map((n) => "- " + n).join("\n")));
+    if (t.type === "mcp") line(t.blocked ? "blocked" : "mcp", `<span class="k">MCP tool ${esc(t.name)}</span>  hash ${t.hash}${t.changed ? "  ⚠ CHANGED since approval" : ""}${t.blocked ? "  → BLOCKED" : ""}\n${esc(t.description)}\nargs: ${esc(Object.keys(t.schema.properties).join(", "))}`);
+    if (t.type === "call") line("call", `<span class="k">→ ${esc(t.name)}</span> ${esc(show(t.args))}`);
+    if (t.type === "result") line(t.code === 403 ? "blocked" : "result", `← ${t.code} ${esc(show(t.result))}`);
+    if (t.type === "reply" && t.usage) line("info", `tokens this turn: ${t.usage.input} in / ${t.usage.output} out`);
+  }
+}
+
+async function state() {
+  const s = await (await fetch("/api/state")).json();
+  $("defs").innerHTML = "Defenses: " + Object.entries(s.defenses).map(([k, v]) => `${k} <b class="${v ? "on" : "off"}">${v ? "ON" : "off"}</b>`).join(" · ") + ` · model ${esc(s.model)}`;
+}
+
+function newSession() { sid = null; $("chat").innerHTML = ""; $("trace").innerHTML = ""; }
+
+$("send").onsubmit = async (e) => {
+  e.preventDefault();
+  const message = $("msg").value.trim(); if (!message) return;
+  $("msg").value = ""; say("me", message); line("info", "thinking…");
+  const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: $("user").value, session_id: sid, message }) });
+  $("trace").lastChild.remove();
+  if (!r.ok) { line("blocked", "error " + r.status + ": " + esc(await r.text())); return; }
+  const j = await r.json(); sid = j.session_id; render(j.trace); say("bot", j.reply);
+};
+$("ticket").onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch("/api/tickets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ user: $("user").value, subject: $("tsub").value, body: $("tbody").value }) });
+  const j = await r.json(); line("info", `ticket ${esc(j.id)} created by ${esc($("user").value)}`); $("tsub").value = $("tbody").value = "";
+};
+$("inbound").onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch("/api/inbound-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ from_addr: $("efrom").value, reply_to: $("ereply").value, subject: $("esub").value, body: $("ebody").value }) });
+  const j = await r.json(); line("info", `email from ${esc($("efrom").value)} became ticket ${esc(j.id)}`); $("efrom").value = $("ereply").value = $("esub").value = $("ebody").value = "";
+};
+$("user").onchange = newSession;
+$("newsess").onclick = newSession;
+$("reset").onclick = async () => { await fetch("/api/reset", { method: "POST" }); newSession(); line("info", "lab reset: seeded data restored, memory cleared, MCP server benign"); state(); };
+state();
+</script>
+</body>
+</html>

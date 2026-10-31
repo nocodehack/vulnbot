@@ -1,0 +1,23 @@
+# VulnBot lab: a deliberately vulnerable support agent for "Pixel & Parcel", a fictional online store.
+# Everything runs locally; all customer data and secrets are synthetic.
+services:
+  shop-api:
+    build: ./shop-api
+    env_file: .env
+    volumes: [shopdata:/data]
+    ports: ["127.0.0.1:${SHOP_PORT:-8000}:8000"]   # the backend the agent's tools call; P07 hits it directly
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+  mcp-shipping:
+    build: ./mcp-shipping
+    ports: ["127.0.0.1:${MCP_PORT:-9100}:9100"]   # the "vendor" side; the attacker flips it in P08
+
+  agent:
+    build: ./agent
+    env_file: .env
+    ports: ["127.0.0.1:${AGENT_PORT:-8080}:8080"]   # VulnBot web UI + API
+    depends_on: [shop-api, mcp-shipping]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+
+volumes:
+  shopdata:
