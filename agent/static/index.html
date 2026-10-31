@@ -82,7 +82,9 @@ let sid = null;
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 const show = (v) => (typeof v === "string" ? v : JSON.stringify(v, null, 1));
 
-function say(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; $("chat").append(d); d.scrollIntoView(); }
+// light markdown for bot replies: escape first, so model output can never inject HTML
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/`([^`\n]+)`/g, "<code>$1</code>").replace(/^#{1,4} +(.*)$/gm, "<b>$1</b>").replace(/^[-*] /gm, "• ");
+function say(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; if (cls === "bot") d.innerHTML = md(text); else d.textContent = text; $("chat").append(d); d.scrollIntoView(); }
 function line(cls, html) { const d = document.createElement("div"); d.className = "t " + cls; d.innerHTML = html; $("trace").append(d); d.scrollIntoView(); }
 
 function render(trace) {
