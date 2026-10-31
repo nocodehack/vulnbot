@@ -21,6 +21,6 @@ case "$1" in
       key="DEFENSE_${n^^}"; grep -q "^$key=" .env || { echo "unknown defense: $n"; exit 1; }
       sed -i "s/^$key=[a-z]*/$key=$3/" .env; echo "$key=$3"
     done
-    docker compose up -d >/dev/null && ready && echo "restarted with new defenses" ;;
+    docker compose up -d >/dev/null 2>&1 && ready && echo "restarted with new defenses" ;;
   *) echo "usage: ./lab start | stop | reset | status | defense <name|all> <on|off> | poison <inject|harvest> | logs [service]" ;;
 esac
