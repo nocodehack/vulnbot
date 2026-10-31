@@ -3,8 +3,12 @@
 set -e
 cd "$(dirname "$0")"
 [ -f .env ] || { cp .env.example .env; echo "Created .env - put your API key in it, then run ./lab start"; exit 1; }
+ready() {  # wait until VulnBot answers (containers take a few seconds to boot)
+  for _ in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:8080/api/state && return 0; sleep 1; done
+  echo "VulnBot did not come up - try ./lab logs agent"; return 1
+}
 case "$1" in
-  start)  docker compose up -d --build && echo "VulnBot: http://127.0.0.1:8080" ;;
+  start)  docker compose up -d --build && ready && echo "VulnBot: http://127.0.0.1:8080" ;;
   stop)   docker compose down ;;
   reset)  curl -s -X POST http://127.0.0.1:8080/api/reset; echo ;;
   status) curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool ;;
@@ -17,6 +21,6 @@ case "$1" in
       key="DEFENSE_${n^^}"; grep -q "^$key=" .env || { echo "unknown defense: $n"; exit 1; }
       sed -i "s/^$key=[a-z]*/$key=$3/" .env; echo "$key=$3"
     done
-    docker compose up -d >/dev/null && echo "restarted with new defenses" ;;
+    docker compose up -d >/dev/null && ready && echo "restarted with new defenses" ;;
   *) echo "usage: ./lab start | stop | reset | status | defense <name|all> <on|off> | poison <inject|harvest> | logs [service]" ;;
 esac
