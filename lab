@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VulnBot lab helper.  ./lab start | stop | reset | status | defense <recipients|authz|mcp_pin|memory|all> <on|off> | poison <inject|harvest> | logs
+# VulnBot lab helper.  ./lab start | stop | reset | status | defense <recipients|authz|mcp_pin|memory|all> <on|off> | poison <inject|harvest> | logs [service]
 set -e
 cd "$(dirname "$0")"
 [ -f .env ] || { cp .env.example .env; echo "Created .env - put your API key in it, then run ./lab start"; exit 1; }
@@ -9,7 +9,7 @@ case "$1" in
   reset)  curl -s -X POST http://127.0.0.1:8080/api/reset; echo ;;
   status) curl -s http://127.0.0.1:8080/api/state | python3 -m json.tool ;;
   poison) curl -s -X POST "http://127.0.0.1:9100/admin/mode/${2:-inject}"; echo ;;
-  logs)   docker compose logs -f --tail 50 ;;
+  logs)   docker compose logs -f --tail 50 $2 ;;
   defense)
     names="$2"; [ "$2" = all ] && names="recipients authz mcp_pin memory"
     [[ "$3" =~ ^(on|off)$ ]] || { echo "usage: ./lab defense <name|all> <on|off>"; exit 1; }
@@ -18,5 +18,5 @@ case "$1" in
       sed -i "s/^$key=[a-z]*/$key=$3/" .env; echo "$key=$3"
     done
     docker compose up -d >/dev/null && echo "restarted with new defenses" ;;
-  *) echo "usage: ./lab start | stop | reset | status | defense <name|all> <on|off> | poison <inject|harvest> | logs" ;;
+  *) echo "usage: ./lab start | stop | reset | status | defense <name|all> <on|off> | poison <inject|harvest> | logs [service]" ;;
 esac

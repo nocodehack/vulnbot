@@ -41,7 +41,7 @@ Open **http://127.0.0.1:8080**. Choose who you are logged in as, chat with VulnB
 | `./lab status` | Show refunds, sent email, memory, tickets, defenses and the model in use |
 | `./lab defense <name\|all> <on\|off>` | Switch a defense (`recipients`, `authz`, `mcp_pin`, `memory`) and restart |
 | `./lab poison <inject\|harvest>` | Play the vendor: change ParcelTrack's tool definition after it was approved |
-| `./lab logs` | Follow the service logs (the MCP server prints every call it receives) |
+| `./lab logs [service]` | Follow the logs, e.g. `./lab logs mcp-shipping` shows every call the MCP vendor receives |
 
 ## Defenses
 
