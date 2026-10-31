@@ -5,30 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VulnBot · Pixel &amp; Parcel</title>
 <style>
-  :root { --bg:#0e1116; --panel:#161b22; --line:#2a313c; --ink:#e6edf3; --dim:#8b949e; --acc:#4cc2ff; --ok:#3fb950; --red:#ff6b6b; --hi:#ffd166; }
+  :root { --bg:#0b0e14; --panel:#121722; --card:#171d2a; --line:#252d3d; --ink:#e8edf5; --dim:#8a95a8; --acc:#4cc2ff; --ok:#3fb950; --red:#ff6b6b; --hi:#ffd166; --mem:#c084fc; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui, sans-serif; height:100vh; display:flex; flex-direction:column; }
-  header { display:flex; gap:12px; align-items:center; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0 12px 0 0; } header h1 span { color:var(--acc); }
-  select, button, input, textarea { font:inherit; color:var(--ink); background:#0b0e13; border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
-  button { cursor:pointer; } button:hover { border-color:var(--acc); }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 system-ui, "Segoe UI", sans-serif; height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:12px; align-items:center; padding:12px 20px; border-bottom:1px solid var(--line); background:linear-gradient(180deg, #151b28, var(--panel)); flex-wrap:wrap; }
+  header h1 { font-size:18px; font-weight:700; margin:0 12px 0 0; letter-spacing:-.01em; }
+  header h1::before { content:""; display:inline-block; vertical-align:1px; margin-right:10px; width:12px; height:12px; border-radius:50%; background:var(--acc); box-shadow:0 0 12px var(--acc); }
+  header h1 span { color:var(--acc); }
+  header label { color:var(--dim); font-size:15px; }
+  select, button, input, textarea { font:inherit; color:var(--ink); background:#0d1119; border:1px solid var(--line); border-radius:8px; padding:7px 12px; }
+  input:focus, textarea:focus, select:focus { outline:none; border-color:var(--acc); box-shadow:0 0 0 3px #4cc2ff26; }
+  button { cursor:pointer; background:var(--card); transition:border-color .15s, background .15s; } button:hover { border-color:var(--acc); background:#1c2434; }
+  form.send button, details form button { background:var(--acc); color:#06121b; border-color:var(--acc); font-weight:600; }
+  form.send button:hover, details form button:hover { background:#7dd3ff; }
   #defs { margin-left:auto; color:var(--dim); font-size:14px; }
-  #defs b.on { color:var(--ok); } #defs b.off { color:var(--red); }
+  #defs b { padding:1px 7px; border-radius:999px; font-size:12px; }
+  #defs b.on { color:var(--ok); background:#3fb95022; } #defs b.off { color:var(--red); background:#ff6b6b1f; }
   main { flex:1; display:grid; grid-template-columns: 1fr 1fr; min-height:0; }
   section { display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); }
-  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); margin:0; padding:10px 16px; border-bottom:1px solid var(--line); }
-  #chat, #trace { flex:1; overflow:auto; padding:12px 16px; }
-  .msg { margin:8px 0; padding:10px 12px; border-radius:8px; max-width:90%; white-space:pre-wrap; }
-  .me { background:#1f2a37; margin-left:auto; } .bot { background:var(--panel); border:1px solid var(--line); }
-  form.send { display:flex; gap:8px; padding:12px 16px; border-top:1px solid var(--line); }
-  form.send input { flex:1; }
-  .t { font:13px/1.4 ui-monospace, "Fira Code", monospace; margin:6px 0; padding:6px 8px; border-left:3px solid var(--line); white-space:pre-wrap; word-break:break-word; }
-  .t.call { border-color:var(--acc); } .t.result { border-color:var(--ok); color:var(--dim); }
-  .t.blocked { border-color:var(--red); color:var(--red); } .t.mcp { border-color:var(--hi); }
-  .t.memory { border-color:#c084fc; } .t.info { color:var(--dim); border-color:transparent; }
-  .t .k { color:var(--hi); }
-  details { border-top:1px solid var(--line); padding:8px 16px; } summary { cursor:pointer; color:var(--dim); }
-  details form { display:grid; gap:8px; margin-top:8px; } textarea { min-height:90px; }
+  section + section { background:#090c11; }
+  h2 { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--dim); margin:0; padding:12px 20px; border-bottom:1px solid var(--line); }
+  #chat, #trace { flex:1; overflow:auto; padding:16px 20px; }
+  #chat:empty::before { content:"Start a conversation below."; color:var(--dim); }
+  #trace:empty::before { content:"Every tool call the agent makes shows up here."; color:var(--dim); font-size:14px; }
+  .msg { margin:10px 0; padding:12px 16px; border-radius:14px; max-width:88%; white-space:pre-wrap; box-shadow:0 1px 2px #0006; }
+  .me { background:#1d3a5c; margin-left:auto; border-bottom-right-radius:4px; }
+  .bot { background:var(--card); border:1px solid var(--line); border-bottom-left-radius:4px; }
+  .msg code, .t code { font:14px ui-monospace, "Fira Code", monospace; background:#0d1119; padding:1px 5px; border-radius:4px; }
+  form.send { display:flex; gap:8px; padding:12px 20px; border-top:1px solid var(--line); }
+  form.send input { flex:1; padding:10px 14px; }
+  .t { font:13px/1.45 ui-monospace, "Fira Code", monospace; margin:8px 0; padding:8px 12px; border-left:3px solid var(--line); border-radius:0 8px 8px 0; background:var(--panel); white-space:pre-wrap; word-break:break-word; }
+  .t.call { border-color:var(--acc); } .t.call .k { color:var(--acc); }
+  .t.result { border-color:var(--ok); color:var(--dim); }
+  .t.blocked { border-color:var(--red); color:var(--red); background:#ff6b6b12; } .t.mcp { border-color:var(--hi); background:#ffd16610; }
+  .t.memory { border-color:var(--mem); background:#c084fc12; } .t.memory .k { color:var(--mem); }
+  .t.info { color:var(--dim); border-color:transparent; background:none; }
+  .t .k { color:var(--hi); font-weight:600; }
+  details { border-top:1px solid var(--line); padding:10px 20px; } summary { cursor:pointer; color:var(--dim); font-size:15px; } summary:hover { color:var(--ink); }
+  details[open] summary { color:var(--ink); }
+  details form { display:grid; gap:8px; margin-top:10px; } textarea { min-height:90px; resize:vertical; }
+  ::-webkit-scrollbar { width:10px; } ::-webkit-scrollbar-thumb { background:var(--line); border-radius:5px; }
   @media (max-width: 800px) { main { grid-template-columns:1fr; } }
 </style>
 </head>
